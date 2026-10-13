@@ -182,6 +182,7 @@ textarea { resize: vertical; }
 .pick.team-blue.on { border-color: var(--blue); background: rgba(61, 139, 255, 0.18); }
 
 .waiting .panel { text-align: center; margin-top: 15vh; }
+.waiting p { line-height: 1.5; }
 .code-big { font-family: var(--display); font-size: 3.4rem; letter-spacing: 0.15em; color: var(--accent); line-height: 1; }
 .spinner {
   width: 36px; height: 36px; margin: 20px auto 0;
@@ -444,6 +445,7 @@ textarea { resize: vertical; }
 .pool-count { font-weight: 800; }
 .pool-count.bad { color: var(--red); }
 .row-btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.row-btns.center { justify-content: center; margin-top: 8px; }
 
 .win-modal { text-align: center; }
 .win-emoji { font-size: 4rem; animation: pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); }

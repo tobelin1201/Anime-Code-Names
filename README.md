@@ -36,16 +36,24 @@ npm test           # runs the game-rule tests (Node 20+)
 
 ## How the sync works
 
-The host's browser is the referee. Other phones connect to it directly over WebRTC using [PeerJS](https://peerjs.com/). PeerJS's free public server only introduces the phones to each other. No game data is stored there, and operatives' phones are never sent the secret key.
+The host's browser is the referee. Every other phone sends its taps to the host, and the host sends each player their own view of the board. Operatives' phones are never sent the secret key.
+
+Phones reach the host in two ways, both tried automatically:
+
+1. **Relay (main path):** messages go through free public MQTT brokers ([EMQX](https://www.emqx.com/en/mqtt/public-mqtt5-broker) and [HiveMQ](https://www.hivemq.com/mqtt/public-mqtt-broker/)) over secure WebSockets. This works on almost any network. The brokers are public, so every message is end-to-end encrypted between each player and the host (ECDH key exchange + AES-GCM), and the broker only ever sees ciphertext.
+2. **Direct (fallback):** a peer-to-peer WebRTC link via [PeerJS](https://peerjs.com/), used if neither broker can be reached.
 
 - If the host refreshes or briefly loses signal, the game is saved on their device and everyone reconnects automatically.
 - If the host closes the game, it ends for everyone. They can pick it back up later with **Resume hosting** on the home screen.
-- Some school or office Wi-Fi blocks peer-to-peer connections. If someone can't join, have them switch to mobile data.
+- If a phone still can't connect, the join screen offers **Retry** after 15 seconds. Switching between Wi-Fi and mobile data usually fixes strict networks.
 
-To use your own PeerJS server instead of the public one, add this before the scripts in `index.html`:
+To use your own servers, add this before the scripts in `index.html`:
 
 ```html
-<script>window.ACN_PEER_CONFIG = { host: 'peer.example.com', port: 443, path: '/', secure: true };</script>
+<script>
+  window.ACN_RELAYS = ['wss://mqtt.example.com:8084/mqtt'];
+  window.ACN_PEER_CONFIG = { host: 'peer.example.com', port: 443, path: '/', secure: true };
+</script>
 ```
 
 ## Project layout
@@ -54,9 +62,9 @@ To use your own PeerJS server instead of the public one, add this before the scr
 | --- | --- |
 | `js/characters.js` | The character deck (English + Japanese names), grouped by series |
 | `js/game.js` | Game rules as pure functions (key layout, turns, win conditions, per-player views) |
-| `js/net.js` | Host and client networking over PeerJS |
+| `js/net.js` | Host and client networking: encrypted MQTT relay plus PeerJS fallback |
 | `js/i18n.js` | Interface translations. Copy the `en` block to add a language |
 | `js/app.js` | Screens, rendering, and the host's referee loop |
-| `vendor/` | Pinned copies of PeerJS 1.5.4 and qrcode-generator 1.4.4 |
+| `vendor/` | Pinned copies of mqtt.js 5.10.1, PeerJS 1.5.4 and qrcode-generator 1.4.4 |
 
 *Codenames is a game by Vlaada Chvátil (Czech Games Edition). This is an unofficial fan project for playing with friends. Character names belong to their respective creators.*
