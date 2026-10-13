@@ -140,6 +140,7 @@ function hostOnMessage(from, msg) {
       H.players[from] = { ...sanitizeProfile(msg), host: from === pid };
       break;
     case 'left':
+    case 'presence':
       break;
     case 'action': {
       const res = applyAction(H.game, msg.action || {}, H.players[from], H.settings);
@@ -199,19 +200,26 @@ function hostUndo() {
 }
 
 // ---------- client ----------
+const STUCK_AFTER = 15000;
+
 function startJoining(code) {
   S.isHost = false;
   S.code = code;
   S.screen = 'game';
   S.view = null;
   setRoomInUrl(code);
+  S.joinStarted = Date.now();
   client = new Client(code, {
     onMessage: handleMessage,
     onStatus: setStatus,
-    onOpen: () => client.send({ type: 'hello', pid, ...me() }),
+    hello: () => ({ type: 'hello', pid, ...me() }),
   });
   client.start();
   render();
+  // Re-render once the join has taken a while so the waiting screen can offer help.
+  setTimeout(() => {
+    if (client && !S.view) render();
+  }, STUCK_AFTER + 100);
 }
 
 function handleMessage(msg) {
@@ -242,11 +250,8 @@ function act(action) {
 }
 
 function leaveGame() {
-  if (H?.net?.peer) H.net.peer.destroy();
-  if (client?.peer) {
-    clearInterval(client.heartbeat);
-    client.peer.destroy();
-  }
+  H?.net?.stop();
+  client?.stop();
   H = null;
   client = null;
   S.isHost = false;
@@ -365,19 +370,24 @@ function statusBanner() {
     if (S.status === 'offline') return `<div class="banner warn">${esc(t('hostOffline'))}</div>`;
     return `<div class="banner">${esc(t('connecting'))}</div>`;
   }
-  if (S.status === 'reconnecting') return `<div class="banner warn">${esc(t('reconnecting'))}</div>`;
-  return '';
+  return `<div class="banner warn">${esc(t('reconnecting'))}</div>`;
 }
 
 function renderGame() {
   if (!S.view) {
-    const notFound = S.status === 'notfound';
-    const offline = S.status === 'offline';
+    const failed = S.status === 'notfound' || S.status === 'offline';
+    const stuck = !S.isHost && Date.now() - (S.joinStarted || 0) > STUCK_AFTER;
+    const msg = S.status === 'notfound' ? 'roomNotFound' : S.status === 'offline' ? 'joinOffline' : S.status === 'waiting' ? 'waitingHost' : 'connecting';
     return `<main class="waiting">
       <div class="panel">
         <div class="code-big">${esc(S.code)}</div>
-        ${notFound || offline ? `<p>${esc(t(notFound ? 'roomNotFound' : 'hostOffline'))}</p>` : `<div class="spinner"></div><p>${esc(t(S.status === 'reconnecting' ? 'reconnecting' : 'connecting'))}</p>`}
-        <button class="btn ghost" data-act="home">← ${esc(t('back'))}</button>
+        ${failed ? '' : '<div class="spinner"></div>'}
+        <p>${esc(t(msg))}</p>
+        ${stuck && !failed ? `<p class="muted">${esc(t('stuckHint'))}</p>` : ''}
+        <div class="row-btns center">
+          <button class="btn ghost" data-act="home">← ${esc(t('back'))}</button>
+          ${failed || stuck ? `<button class="btn primary" data-act="retry">${esc(t('retry'))}</button>` : ''}
+        </div>
       </div></main>`;
   }
   const v = S.view;
@@ -771,6 +781,11 @@ document.addEventListener('click', (e) => {
   }
   if (a === 'resume') return startHosting(store.get('acn-host'));
   if (a === 'back' || a === 'home') return leaveGame();
+  if (a === 'retry') {
+    const code = S.code;
+    client?.stop();
+    return startJoining(code);
+  }
   if (a === 'rules') return openModal('rules');
   if (a === 'invite') return openModal('invite');
   if (a === 'players') return openModal('players');
