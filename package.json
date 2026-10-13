@@ -1,0 +1,10 @@
+{
+  "name": "anime-codenames",
+  "private": true,
+  "type": "module",
+  "description": "Codenames with anime characters, played on everyone's phone.",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
